@@ -1,11 +1,11 @@
 {
   "window_size": 128,
-  "line_length": 18.0,
-  "line_thickness": 2.5,
-  "gap": 5.0,
+  "line_length": 8.0,
+  "line_thickness": 1.5,
+  "gap": 2.0,
   "center_dot": false,
-  "center_dot_radius": 1.5,
-  "t_style": true,
+  "center_dot_radius": 2.5,
+  "t_style": false,
   "outline_enabled": true,
   "outline_thickness": 1.5,
   "outline_color": {
@@ -16,8 +16,8 @@
   },
   "color": {
     "r": 255,
-    "g": 235,
-    "b": 0,
+    "g": 45,
+    "b": 85,
     "a": 255
   }
 }

@@ -16,11 +16,15 @@ fn main() {
         }
     }
 
-    // Если /lib/libwayland-client.so.0 является симлинком на nix store,
-    // добавляем точный путь в nix store напрямую в RPATH бинарника:
-    if let Ok(target) = std::fs::canonicalize("/lib/libwayland-client.so.0") {
-        if let Some(parent) = target.parent() {
-            println!("cargo:rustc-link-arg=-Wl,-rpath,{}", parent.display());
+    for candidate in &[
+        "/lib/libwayland-client.so.0",
+        "/usr/lib64/libwayland-client.so.0",
+        "/usr/lib/libwayland-client.so.0",
+    ] {
+        if let Ok(target) = std::fs::canonicalize(candidate) {
+            if let Some(parent) = target.parent() {
+                println!("cargo:rustc-link-arg=-Wl,-rpath,{}", parent.display());
+            }
         }
     }
 }
