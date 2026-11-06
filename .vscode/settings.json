@@ -1,0 +1,15 @@
+{
+  // Оптимизация rust-analyzer: проверка через легкий cargo check вместо clippy
+  "rust-analyzer.checkOnSave.command": "check",
+
+  // Ограничение числа потоков анализатора (чтобы не нагружать процессор на 100%)
+  "rust-analyzer.numThreads": 2,
+
+  // Отключаем фоновую индексацию всех второстепенных таргетов
+  "rust-analyzer.cargo.allTargets": false,
+
+  // Исключаем тяжелую папку target из наблюдения файловой системы (экономит ОЗУ)
+  "files.watcherExclude": {
+    "**/target/**": true
+  }
+}

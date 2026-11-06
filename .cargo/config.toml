@@ -1,0 +1,7 @@
+# Оптимизация линкера для ускорения инкрементальной сборки в 2-4 раза
+[target.x86_64-unknown-linux-gnu]
+linker = "gcc"
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
