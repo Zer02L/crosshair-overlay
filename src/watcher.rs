@@ -3,7 +3,7 @@ use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-pub trait ConfigUpdateSender: Send + 'static {
+pub trait ConfigUpdateSender: Send + Sync + 'static {
     fn send_config(&self, config: CrosshairConfig);
 }
 

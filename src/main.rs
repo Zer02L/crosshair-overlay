@@ -2,6 +2,7 @@ mod config;
 mod render;
 mod watcher;
 mod wayland_overlay;
+mod web_server;
 
 use config::CrosshairConfig;
 use std::num::NonZeroU32;

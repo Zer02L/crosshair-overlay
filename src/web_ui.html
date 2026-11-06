@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Crosshair Overlay Remote Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: '#00ff66',
+                        darkbg: '#0a0d14',
+                        cardbg: '#121824',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        input[type=range] {
+            accent-color: #00ff66;
+        }
+        .touch-action-manipulation {
+            touch-action: manipulation;
+        }
+    </style>
+</head>
+<body class="bg-darkbg text-gray-100 min-h-screen flex flex-col font-sans select-none antialiased">
+    <!-- Header -->
+    <header class="p-4 bg-cardbg/80 backdrop-blur border-b border-gray-800 sticky top-0 z-50 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-cyber animate-pulse"></div>
+            <h1 class="text-lg font-black tracking-wider uppercase text-cyber">Crosshair Remote</h1>
+        </div>
+        <div id="status" class="text-xs px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 font-mono border border-emerald-800">
+            Подключено
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 p-4 max-w-md w-full mx-auto space-y-5 pb-12">
+        <!-- Live Preview Box -->
+        <div class="bg-cardbg rounded-2xl p-4 border border-gray-800/80 shadow-2xl flex flex-col items-center justify-center relative overflow-hidden h-44">
+            <div class="absolute inset-0 bg-[radial-gradient(#1f293d_1px,transparent_1px)] [background-size:16px_16px] opacity-40"></div>
+            <div id="preview-canvas-container" class="relative z-10 w-32 h-32 flex items-center justify-center">
+                <!-- SVG Preview -->
+                <svg id="crosshair-preview" class="w-32 h-32" viewBox="0 0 128 128">
+                    <!-- Будет динамически перерисовываться -->
+                </svg>
+            </div>
+            <span class="absolute bottom-2 text-[10px] text-gray-500 font-mono uppercase tracking-widest">Интерактивное превью</span>
+        </div>
+
+        <!-- Quick Presets -->
+        <div class="space-y-2">
+            <label class="text-xs font-bold uppercase tracking-wider text-gray-400">Быстрые пресеты</label>
+            <div class="grid grid-cols-4 gap-2">
+                <button onclick="applyPreset('dot')" class="p-2.5 bg-cardbg hover:bg-gray-800 active:scale-95 transition border border-gray-800 rounded-xl text-center flex flex-col items-center gap-1">
+                    <span class="w-2.5 h-2.5 rounded-full bg-cyber"></span>
+                    <span class="text-[11px] font-medium">Точка</span>
+                </button>
+                <button onclick="applyPreset('cs_cross')" class="p-2.5 bg-cardbg hover:bg-gray-800 active:scale-95 transition border border-gray-800 rounded-xl text-center flex flex-col items-center gap-1">
+                    <span class="text-cyber text-xs font-mono font-bold">+</span>
+                    <span class="text-[11px] font-medium">Крестик</span>
+                </button>
+                <button onclick="applyPreset('t_style')" class="p-2.5 bg-cardbg hover:bg-gray-800 active:scale-95 transition border border-gray-800 rounded-xl text-center flex flex-col items-center gap-1">
+                    <span class="text-cyber text-xs font-mono font-bold">T</span>
+                    <span class="text-[11px] font-medium">T-Style</span>
+                </button>
+                <button onclick="applyPreset('circle_dot')" class="p-2.5 bg-cardbg hover:bg-gray-800 active:scale-95 transition border border-gray-800 rounded-xl text-center flex flex-col items-center gap-1">
+                    <span class="w-3 h-3 rounded-full border border-cyber"></span>
+                    <span class="text-[11px] font-medium">Круг</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Color Palette -->
+        <div class="space-y-2">
+            <label class="text-xs font-bold uppercase tracking-wider text-gray-400">Цвет прицела</label>
+            <div class="grid grid-cols-6 gap-2">
+                <button onclick="setColor(0, 255, 100)" class="h-9 rounded-xl bg-[#00ff66] border-2 border-transparent focus:border-white transition active:scale-90"></button>
+                <button onclick="setColor(0, 220, 255)" class="h-9 rounded-xl bg-[#00dcff] border-2 border-transparent focus:border-white transition active:scale-90"></button>
+                <button onclick="setColor(255, 0, 100)" class="h-9 rounded-xl bg-[#ff0064] border-2 border-transparent focus:border-white transition active:scale-90"></button>
+                <button onclick="setColor(255, 230, 0)" class="h-9 rounded-xl bg-[#ffe600] border-2 border-transparent focus:border-white transition active:scale-90"></button>
+                <button onclick="setColor(255, 0, 255)" class="h-9 rounded-xl bg-[#ff00ff] border-2 border-transparent focus:border-white transition active:scale-90"></button>
+                <button onclick="setColor(255, 255, 255)" class="h-9 rounded-xl bg-[#ffffff] border-2 border-transparent focus:border-white transition active:scale-90"></button>
+            </div>
+        </div>
+
+        <!-- Sliders -->
+        <div class="bg-cardbg rounded-2xl p-4 border border-gray-800/80 space-y-4">
+            <!-- Length -->
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-gray-400 font-medium">Длина линий</span>
+                    <span id="val-length" class="font-mono text-cyber font-bold">10 px</span>
+                </div>
+                <input id="slider-length" type="range" min="2" max="30" step="1" value="10" oninput="onSliderChange()" class="w-full h-2 bg-gray-800 rounded-lg cursor-pointer">
+            </div>
+
+            <!-- Thickness -->
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-gray-400 font-medium">Толщина линий</span>
+                    <span id="val-thickness" class="font-mono text-cyber font-bold">2 px</span>
+                </div>
+                <input id="slider-thickness" type="range" min="1" max="10" step="1" value="2" oninput="onSliderChange()" class="w-full h-2 bg-gray-800 rounded-lg cursor-pointer">
+            </div>
+
+            <!-- Gap -->
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-gray-400 font-medium">Зазор (Gap)</span>
+                    <span id="val-gap" class="font-mono text-cyber font-bold">5 px</span>
+                </div>
+                <input id="slider-gap" type="range" min="0" max="25" step="1" value="5" oninput="onSliderChange()" class="w-full h-2 bg-gray-800 rounded-lg cursor-pointer">
+            </div>
+
+            <!-- Dot Radius -->
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-gray-400 font-medium">Радиус центральной точки</span>
+                    <span id="val-dot" class="font-mono text-cyber font-bold">1.5 px</span>
+                </div>
+                <input id="slider-dot" type="range" min="0.5" max="8" step="0.5" value="1.5" oninput="onSliderChange()" class="w-full h-2 bg-gray-800 rounded-lg cursor-pointer">
+            </div>
+        </div>
+
+        <!-- Toggles -->
+        <div class="bg-cardbg rounded-2xl p-4 border border-gray-800/80 space-y-3">
+            <label class="flex items-center justify-between cursor-pointer">
+                <span class="text-sm font-medium">Точка в центре</span>
+                <input id="toggle-dot" type="checkbox" onchange="onSliderChange()" class="w-5 h-5 rounded border-gray-700 text-cyber focus:ring-0 bg-gray-900">
+            </label>
+            <div class="border-t border-gray-800/50"></div>
+            <label class="flex items-center justify-between cursor-pointer">
+                <span class="text-sm font-medium">Контрастная обводка</span>
+                <input id="toggle-outline" type="checkbox" onchange="onSliderChange()" class="w-5 h-5 rounded border-gray-700 text-cyber focus:ring-0 bg-gray-900" checked>
+            </label>
+            <div class="border-t border-gray-800/50"></div>
+            <label class="flex items-center justify-between cursor-pointer">
+                <span class="text-sm font-medium">T-Style (без верхней линии)</span>
+                <input id="toggle-tstyle" type="checkbox" onchange="onSliderChange()" class="w-5 h-5 rounded border-gray-700 text-cyber focus:ring-0 bg-gray-900">
+            </label>
+        </div>
+    </main>
+
+    <script>
+        let config = {
+            window_size: 128,
+            line_length: 10.0,
+            line_thickness: 2.0,
+            gap: 5.0,
+            center_dot: false,
+            center_dot_radius: 1.5,
+            t_style: false,
+            outline_enabled: true,
+            outline_thickness: 1.0,
+            outline_color: { r: 0, g: 0, b: 0, a: 220 },
+            color: { r: 0, g: 255, b: 100, a: 255 }
+        };
+
+        let sendTimeout = null;
+
+        async function fetchConfig() {
+            try {
+                const res = await fetch('/api/config');
+                if (res.ok) {
+                    config = await res.json();
+                    updateUIFromConfig();
+                    renderPreview();
+                    document.getElementById('status').innerText = 'Синхронизировано';
+                    document.getElementById('status').className = 'text-xs px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 font-mono border border-emerald-800';
+                }
+            } catch (e) {
+                document.getElementById('status').innerText = 'Офлайн';
+                document.getElementById('status').className = 'text-xs px-2.5 py-1 rounded-full bg-rose-950 text-rose-400 font-mono border border-rose-800';
+            }
+        }
+
+        function updateUIFromConfig() {
+            document.getElementById('slider-length').value = config.line_length;
+            document.getElementById('val-length').innerText = config.line_length + ' px';
+
+            document.getElementById('slider-thickness').value = config.line_thickness;
+            document.getElementById('val-thickness').innerText = config.line_thickness + ' px';
+
+            document.getElementById('slider-gap').value = config.gap;
+            document.getElementById('val-gap').innerText = config.gap + ' px';
+
+            document.getElementById('slider-dot').value = config.center_dot_radius;
+            document.getElementById('val-dot').innerText = config.center_dot_radius + ' px';
+
+            document.getElementById('toggle-dot').checked = config.center_dot;
+            document.getElementById('toggle-outline').checked = config.outline_enabled;
+            document.getElementById('toggle-tstyle').checked = config.t_style;
+        }
+
+        function onSliderChange() {
+            config.line_length = parseFloat(document.getElementById('slider-length').value);
+            config.line_thickness = parseFloat(document.getElementById('slider-thickness').value);
+            config.gap = parseFloat(document.getElementById('slider-gap').value);
+            config.center_dot_radius = parseFloat(document.getElementById('slider-dot').value);
+            config.center_dot = document.getElementById('toggle-dot').checked;
+            config.outline_enabled = document.getElementById('toggle-outline').checked;
+            config.t_style = document.getElementById('toggle-tstyle').checked;
+
+            document.getElementById('val-length').innerText = config.line_length + ' px';
+            document.getElementById('val-thickness').innerText = config.line_thickness + ' px';
+            document.getElementById('val-gap').innerText = config.gap + ' px';
+            document.getElementById('val-dot').innerText = config.center_dot_radius + ' px';
+
+            renderPreview();
+            debouncedSend();
+        }
+
+        function setColor(r, g, b) {
+            config.color.r = r;
+            config.color.g = g;
+            config.color.b = b;
+            config.color.a = 255;
+            renderPreview();
+            debouncedSend();
+        }
+
+        function applyPreset(name) {
+            if (name === 'dot') {
+                config.line_length = 0;
+                config.gap = 0;
+                config.center_dot = true;
+                config.center_dot_radius = 2.5;
+                config.outline_enabled = true;
+            } else if (name === 'cs_cross') {
+                config.line_length = 10;
+                config.line_thickness = 2;
+                config.gap = 4;
+                config.center_dot = false;
+                config.t_style = false;
+                config.outline_enabled = true;
+            } else if (name === 't_style') {
+                config.line_length = 12;
+                config.line_thickness = 2;
+                config.gap = 4;
+                config.center_dot = false;
+                config.t_style = true;
+                config.outline_enabled = true;
+            } else if (name === 'circle_dot') {
+                config.line_length = 4;
+                config.line_thickness = 2;
+                config.gap = 8;
+                config.center_dot = true;
+                config.center_dot_radius = 1.5;
+                config.t_style = false;
+                config.outline_enabled = true;
+            }
+            updateUIFromConfig();
+            renderPreview();
+            debouncedSend();
+        }
+
+        function debouncedSend() {
+            clearTimeout(sendTimeout);
+            sendTimeout = setTimeout(sendConfig, 30);
+        }
+
+        async function sendConfig() {
+            try {
+                await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+            } catch (e) {
+                console.error("Ошибка синхронизации:", e);
+            }
+        }
+
+        function renderPreview() {
+            const svg = document.getElementById('crosshair-preview');
+            const cx = 64;
+            const cy = 64;
+            const col = `rgb(${config.color.r}, ${config.color.g}, ${config.color.b})`;
+            const outCol = `rgba(${config.outline_color.r}, ${config.outline_color.g}, ${config.outline_color.b}, ${config.outline_color.a / 255})`;
+            const ot = config.outline_enabled ? config.outline_thickness : 0;
+            const len = config.line_length;
+            const thick = config.line_thickness;
+            const gap = config.gap;
+
+            let html = '';
+
+            function drawBar(x, y, w, h) {
+                if (ot > 0) {
+                    html += `<rect x="${x - ot}" y="${y - ot}" width="${w + ot*2}" height="${h + ot*2}" fill="${outCol}" />`;
+                }
+                html += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${col}" />`;
+            }
+
+            if (len > 0) {
+                const halfT = thick / 2;
+                // Правая
+                drawBar(cx + gap, cy - halfT, len, thick);
+                // Левая
+                drawBar(cx - gap - len, cy - halfT, len, thick);
+                // Нижняя
+                drawBar(cx - halfT, cy + gap, thick, len);
+                // Верхняя
+                if (!config.t_style) {
+                    drawBar(cx - halfT, cy - gap - len, thick, len);
+                }
+            }
+
+            // Центральная точка
+            if (config.center_dot && config.center_dot_radius > 0) {
+                const r = config.center_dot_radius;
+                if (ot > 0) {
+                    html += `<circle cx="${cx}" cy="${cy}" r="${r + ot}" fill="${outCol}" />`;
+                }
+                html += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${col}" />`;
+            }
+
+            svg.innerHTML = html;
+        }
+
+        fetchConfig();
+    </script>
+</body>
+</html>

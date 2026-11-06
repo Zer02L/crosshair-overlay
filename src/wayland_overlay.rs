@@ -276,8 +276,11 @@ pub fn run_wayland_overlay<P: AsRef<Path>>(
         .map_err(|e| format!("Failed to insert channel source: {:?}", e))?;
 
     // Запускаем watcher файла конфигурации
-    let _watcher = crate::watcher::start_config_watcher(config_path, tx)?;
+    let _watcher = crate::watcher::start_config_watcher(config_path.as_ref(), tx.clone())?;
     println!("👀 [Live Reload] Отслеживание изменений файла конфига включено.");
+
+    // Запускаем встроенный локальный веб-сервер и API для мобильных/ПК пультов управления
+    crate::web_server::start_web_server(config.clone(), config_path.as_ref().to_path_buf(), tx.clone(), 4848);
 
     let compositor = CompositorState::bind(&globals, &qh)?;
     let layer_shell = LayerShell::bind(&globals, &qh)?;

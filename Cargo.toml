@@ -24,6 +24,9 @@ tiny-skia = "0.11"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 notify = { version = "8.2.1", default-features = false, features = ["macos_fsevent"] }
+axum = "0.8.9"
+tokio = { version = "1.54.1", features = ["full", "rt-multi-thread"] }
+tower-http = { version = "0.7.1", features = ["cors"] }
 
 # Оптимизации разработки (ускоряет сборку в 3-4 раза)
 [profile.dev]
