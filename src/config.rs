@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RgbaColor {
     pub r: u8,
     pub g: u8,
@@ -20,7 +20,7 @@ impl RgbaColor {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CrosshairConfig {
     /// Размер окна оверлея в пикселях (компактное окно 128x128 не нагружает GPU/ОЗУ)
     pub window_size: u32,

@@ -18,7 +18,6 @@ use smithay_client_toolkit::{
     },
     shm::{slot::SlotPool, Shm, ShmHandler},
 };
-use std::path::Path;
 use tiny_skia::Pixmap;
 use wayland_client::{
     globals::registry_queue_init,
@@ -236,9 +235,16 @@ impl WaylandOverlay {
     }
 }
 
-pub fn run_wayland_overlay<P: AsRef<Path>>(
+pub fn create_overlay_channel() -> (
+    smithay_client_toolkit::reexports::calloop::channel::Sender<CrosshairConfig>,
+    smithay_client_toolkit::reexports::calloop::channel::Channel<CrosshairConfig>,
+) {
+    channel::<CrosshairConfig>()
+}
+
+pub fn run_wayland_overlay(
     config: CrosshairConfig,
-    config_path: P,
+    rx: smithay_client_toolkit::reexports::calloop::channel::Channel<CrosshairConfig>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let conn = Connection::connect_to_env()?;
     let (globals, event_queue) = registry_queue_init(&conn)?;
@@ -252,9 +258,6 @@ pub fn run_wayland_overlay<P: AsRef<Path>>(
     WaylandSource::new(conn.clone(), event_queue)
         .insert(loop_handle.clone())
         .map_err(|e| format!("Failed to insert WaylandSource into event loop: {:?}", e))?;
-
-    // Создаем канал для приема обновленного конфига от file watcher'а
-    let (tx, rx) = channel::<CrosshairConfig>();
 
     // Регистрируем канал как источник событий в цикле calloop
     loop_handle
@@ -274,13 +277,6 @@ pub fn run_wayland_overlay<P: AsRef<Path>>(
             }
         })
         .map_err(|e| format!("Failed to insert channel source: {:?}", e))?;
-
-    // Запускаем watcher файла конфигурации
-    let _watcher = crate::watcher::start_config_watcher(config_path.as_ref(), tx.clone())?;
-    println!("👀 [Live Reload] Отслеживание изменений файла конфига включено.");
-
-    // Запускаем встроенный локальный веб-сервер и API для мобильных/ПК пультов управления
-    crate::web_server::start_web_server(config.clone(), config_path.as_ref().to_path_buf(), tx.clone(), 4848);
 
     let compositor = CompositorState::bind(&globals, &qh)?;
     let layer_shell = LayerShell::bind(&globals, &qh)?;

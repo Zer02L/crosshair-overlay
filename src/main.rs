@@ -1,5 +1,7 @@
 mod config;
+mod gui;
 mod render;
+mod sync;
 mod watcher;
 mod wayland_overlay;
 mod web_server;
@@ -152,6 +154,9 @@ impl ApplicationHandler for CrosshairApp {
 fn main() {
     println!("=== Crosshair X Alternative (High Performance Rust Overlay) ===");
 
+    let args: Vec<String> = std::env::args().collect();
+    let no_gui = args.iter().any(|a| a == "--no-gui" || a == "--headless");
+
     // Загружаем конфиг или создаем дефолтный файл crosshair_config.json
     let config_path = "crosshair_config.json";
     let config = CrosshairConfig::load_or_create(config_path);
@@ -166,27 +171,66 @@ fn main() {
     );
 
     // 1. Если мы работаем под Wayland (KDE Plasma, Sway, Hyprland и др.),
-    // используем нативный Wayland Layer-Shell (Layer::Overlay).
-    // Это дает:
-    // - Отображение поверх ЛЮБЫХ полноэкранных игр (Steam, Proton, Wine)
-    // - Настоящую 32-битную альфа-прозрачность ARGB8888 (без черного фона)
-    // - 100% сквозной клик мыши и ввод в игру (пустой input_region)
-    // - 0% нагрузки на процессор
-    // - Мгновенный Live Reload при редактировании файла конфига
+    // используем нативный Wayland Layer-Shell (Layer::Overlay)
     if std::env::var_os("WAYLAND_DISPLAY").is_some() {
-        println!("Обнаружен Wayland, запуск нативного Layer-Shell оверлея...");
-        match wayland_overlay::run_wayland_overlay(config.clone(), config_path) {
-            Ok(()) => return,
-            Err(err) => {
-                eprintln!(
-                    "Предупреждение: не удалось запустить Wayland Layer-Shell ({:?}), переключение на X11 fallback...",
-                    err
-                );
+        println!("Обнаружен Wayland, инициализация нативного Layer-Shell оверлея...");
+
+        // Создаем канал для приема обновленного конфига оверлеем
+        let (tx, rx) = wayland_overlay::create_overlay_channel();
+
+        // Инициализируем единое разделяемое состояние приложения (Unified Sync State)
+        let shared = sync::SharedState::new(
+            config.clone(),
+            std::path::PathBuf::from(config_path),
+            tx,
+        );
+
+        // Запускаем watcher файла конфигурации
+        let _watcher = match watcher::start_config_watcher(config_path, shared.clone()) {
+            Ok(w) => {
+                println!("👀 [Live Reload] Отслеживание изменений файла конфига включено.");
+                Some(w)
             }
+            Err(e) => {
+                eprintln!("Предупреждение: не удалось запустить file watcher: {:?}", e);
+                None
+            }
+        };
+
+        // Запускаем встроенный локальный веб-сервер и API для мобильных/ПК пультов управления
+        web_server::start_web_server(shared.clone(), 4848);
+
+        if no_gui {
+            println!("🚀 Запуск в фоновом/headless режиме (--no-gui).");
+            if let Err(err) = wayland_overlay::run_wayland_overlay(config, rx) {
+                eprintln!("Ошибка Wayland Layer-Shell: {:?}", err);
+            }
+            return;
         }
+
+        // Запуск оверлея в отдельном потоке
+        let overlay_config = config.clone();
+        std::thread::Builder::new()
+            .name("wayland-overlay".into())
+            .spawn(move || {
+                if let Err(err) = wayland_overlay::run_wayland_overlay(overlay_config, rx) {
+                    eprintln!("Ошибка потока Wayland оверлея: {:?}", err);
+                }
+            })
+            .expect("Failed to spawn wayland overlay thread");
+
+        // Запуск нативного окна настроек на egui в главном потоке
+        println!("🖥️ Запуск нативного окна настроек на egui...");
+        if let Err(e) = gui::run_gui(shared) {
+            eprintln!("Ошибка GUI окна настроек: {:?}", e);
+        }
+
+        println!("Окно настроек закрыто, завершение работы.");
+        std::process::exit(0);
     }
 
     // 2. Fallback для чистого X11 / XWayland
+    println!("Предупреждение: WAYLAND_DISPLAY не найден, переключение на X11 fallback...");
     let event_loop = EventLoop::new().expect("Failed to create EventLoop");
     event_loop.set_control_flow(ControlFlow::Wait);
 

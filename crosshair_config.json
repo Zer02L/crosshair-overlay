@@ -1,23 +1,23 @@
 {
   "window_size": 128,
-  "line_length": 14.0,
-  "line_thickness": 3.0,
-  "gap": 6.0,
-  "center_dot": true,
-  "center_dot_radius": 2.0,
-  "t_style": false,
+  "line_length": 18.0,
+  "line_thickness": 2.5,
+  "gap": 5.0,
+  "center_dot": false,
+  "center_dot_radius": 1.5,
+  "t_style": true,
   "outline_enabled": true,
-  "outline_thickness": 1.0,
+  "outline_thickness": 1.5,
   "outline_color": {
     "r": 0,
     "g": 0,
     "b": 0,
-    "a": 220
+    "a": 255
   },
   "color": {
-    "r": 0,
-    "g": 200,
-    "b": 255,
+    "r": 255,
+    "g": 235,
+    "b": 0,
     "a": 255
   }
 }

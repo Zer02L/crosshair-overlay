@@ -1,5 +1,5 @@
 use crate::config::CrosshairConfig;
-use crate::watcher::ConfigUpdateSender;
+use crate::sync::{ConfigSource, SharedState};
 use axum::{
     extract::State,
     http::StatusCode,
@@ -7,31 +7,15 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
 const INDEX_HTML: &str = include_str!("web_ui.html");
 
-#[derive(Clone)]
-struct AppState {
-    config: Arc<Mutex<CrosshairConfig>>,
-    config_path: PathBuf,
-    sender: Arc<dyn ConfigUpdateSender>,
-}
-
-pub fn start_web_server<S: ConfigUpdateSender>(
-    config: CrosshairConfig,
-    config_path: PathBuf,
-    sender: S,
+pub fn start_web_server(
+    shared: Arc<SharedState>,
     port: u16,
 ) {
-    let state = AppState {
-        config: Arc::new(Mutex::new(config)),
-        config_path,
-        sender: Arc::new(sender),
-    };
-
     std::thread::Builder::new()
         .name("web-server".into())
         .spawn(move || {
@@ -51,7 +35,7 @@ pub fn start_web_server<S: ConfigUpdateSender>(
                     .route("/", get(serve_index))
                     .route("/api/config", get(get_config).post(update_config))
                     .layer(CorsLayer::permissive())
-                    .with_state(state);
+                    .with_state(shared);
 
                 let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
                 let listener = match tokio::net::TcpListener::bind(addr).await {
@@ -62,9 +46,10 @@ pub fn start_web_server<S: ConfigUpdateSender>(
                     }
                 };
 
+                let local_ip = crate::sync::get_local_ip().unwrap_or_else(|| "127.0.0.1".into());
                 println!(
-                    "🌐 [Web UI] Панель управления доступна: http://localhost:{} (для мобильных: http://<IP-ПК>:{})",
-                    port, port
+                    "🌐 [Web UI] Панель управления доступна: http://localhost:{} (для мобильных: http://{}:{})",
+                    port, local_ip, port
                 );
 
                 if let Err(e) = axum::serve(listener, app).await {
@@ -80,29 +65,15 @@ async fn serve_index() -> Html<&'static str> {
 }
 
 async fn get_config(
-    State(state): State<AppState>,
+    State(shared): State<Arc<SharedState>>,
 ) -> Json<CrosshairConfig> {
-    let cfg = state.config.lock().unwrap().clone();
-    Json(cfg)
+    Json(shared.get_config())
 }
 
 async fn update_config(
-    State(state): State<AppState>,
+    State(shared): State<Arc<SharedState>>,
     Json(new_config): Json<CrosshairConfig>,
 ) -> Response {
-    // 1. Обновляем конфиг в памяти
-    {
-        let mut cur = state.config.lock().unwrap();
-        *cur = new_config.clone();
-    }
-
-    // 2. Уведомляем оверлей для мгновенной перерисовки
-    state.sender.send_config(new_config.clone());
-
-    // 3. Сохраняем в файл crosshair_config.json
-    if let Ok(json) = serde_json::to_string_pretty(&new_config) {
-        let _ = std::fs::write(&state.config_path, json);
-    }
-
+    shared.update_config(new_config, ConfigSource::Web);
     StatusCode::OK.into_response()
 }
