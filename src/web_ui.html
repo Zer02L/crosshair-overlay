@@ -164,6 +164,8 @@
         };
 
         let sendTimeout = null;
+        let isInteracting = false;
+        let interactTimer = null;
 
         async function fetchConfig() {
             try {
@@ -172,13 +174,39 @@
                     config = await res.json();
                     updateUIFromConfig();
                     renderPreview();
-                    document.getElementById('status').innerText = 'Синхронизировано';
+                    document.getElementById('status').innerText = '● LIVE SYNC';
                     document.getElementById('status').className = 'text-xs px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 font-mono border border-emerald-800';
                 }
             } catch (e) {
                 document.getElementById('status').innerText = 'Офлайн';
                 document.getElementById('status').className = 'text-xs px-2.5 py-1 rounded-full bg-rose-950 text-rose-400 font-mono border border-rose-800';
             }
+        }
+
+        function initSSE() {
+            const evtSource = new EventSource('/api/events');
+
+            evtSource.onopen = function() {
+                document.getElementById('status').innerText = '● LIVE SYNC';
+                document.getElementById('status').className = 'text-xs px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 font-mono border border-emerald-800';
+            };
+
+            evtSource.onmessage = function(e) {
+                if (isInteracting) return;
+                try {
+                    const serverConfig = JSON.parse(e.data);
+                    config = serverConfig;
+                    updateUIFromConfig();
+                    renderPreview();
+                } catch (err) {
+                    console.error("SSE parse error:", err);
+                }
+            };
+
+            evtSource.onerror = function() {
+                document.getElementById('status').innerText = 'Переподключение...';
+                document.getElementById('status').className = 'text-xs px-2.5 py-1 rounded-full bg-amber-950 text-amber-400 font-mono border border-amber-800';
+            };
         }
 
         function updateUIFromConfig() {
@@ -200,6 +228,10 @@
         }
 
         function onSliderChange() {
+            isInteracting = true;
+            clearTimeout(interactTimer);
+            interactTimer = setTimeout(() => { isInteracting = false; }, 600);
+
             config.line_length = parseFloat(document.getElementById('slider-length').value);
             config.line_thickness = parseFloat(document.getElementById('slider-thickness').value);
             config.gap = parseFloat(document.getElementById('slider-gap').value);
@@ -218,6 +250,10 @@
         }
 
         function setColor(r, g, b) {
+            isInteracting = true;
+            clearTimeout(interactTimer);
+            interactTimer = setTimeout(() => { isInteracting = false; }, 600);
+
             config.color.r = r;
             config.color.g = g;
             config.color.b = b;
@@ -227,6 +263,10 @@
         }
 
         function applyPreset(name) {
+            isInteracting = true;
+            clearTimeout(interactTimer);
+            interactTimer = setTimeout(() => { isInteracting = false; }, 600);
+
             if (name === 'dot') {
                 config.line_length = 0;
                 config.gap = 0;
@@ -325,6 +365,7 @@
         }
 
         fetchConfig();
+        initSSE();
     </script>
 </body>
 </html>

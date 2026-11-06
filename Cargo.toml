@@ -28,6 +28,7 @@ axum = "0.8.9"
 tokio = { version = "1.54.1", features = ["full", "rt-multi-thread"] }
 tower-http = { version = "0.7.1", features = ["cors"] }
 eframe = { version = "0.37.0", features = ["wgpu"] }
+futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
 
 # Оптимизации разработки (ускоряет сборку в 3-4 раза)
 [profile.dev]

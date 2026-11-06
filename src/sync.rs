@@ -3,6 +3,7 @@ use crate::watcher::ConfigUpdateSender;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use tokio::sync::broadcast;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfigSource {
@@ -17,6 +18,7 @@ pub struct SharedState {
     config_path: PathBuf,
     overlay_sender: Arc<dyn ConfigUpdateSender>,
     gui_ctx: Mutex<Option<eframe::egui::Context>>,
+    broadcast_tx: broadcast::Sender<CrosshairConfig>,
 }
 
 impl SharedState {
@@ -25,12 +27,14 @@ impl SharedState {
         config_path: PathBuf,
         overlay_sender: S,
     ) -> Arc<Self> {
+        let (broadcast_tx, _) = broadcast::channel(32);
         Arc::new(Self {
             config: Mutex::new(config),
             version: AtomicU64::new(1),
             config_path,
             overlay_sender: Arc::new(overlay_sender),
             gui_ctx: Mutex::new(None),
+            broadcast_tx,
         })
     }
 
@@ -46,6 +50,10 @@ impl SharedState {
 
     pub fn get_version(&self) -> u64 {
         self.version.load(Ordering::SeqCst)
+    }
+
+    pub fn subscribe(&self) -> broadcast::Receiver<CrosshairConfig> {
+        self.broadcast_tx.subscribe()
     }
 
     pub fn update_config(&self, new_cfg: CrosshairConfig, source: ConfigSource) {
@@ -82,6 +90,9 @@ impl SharedState {
                 }
             }
         }
+
+        // 4. Вещаем изменение всем подключенным веб-клиентам (смартфонам и браузерам)
+        let _ = self.broadcast_tx.send(new_cfg);
     }
 }
 

@@ -210,7 +210,7 @@ fn main() {
 
         // Запуск оверлея в отдельном потоке
         let overlay_config = config.clone();
-        std::thread::Builder::new()
+        let overlay_handle = std::thread::Builder::new()
             .name("wayland-overlay".into())
             .spawn(move || {
                 if let Err(err) = wayland_overlay::run_wayland_overlay(overlay_config, rx) {
@@ -225,8 +225,10 @@ fn main() {
             eprintln!("Ошибка GUI окна настроек: {:?}", e);
         }
 
-        println!("Окно настроек закрыто, завершение работы.");
-        std::process::exit(0);
+        println!("💡 Окно настроек закрыто. Оверлей и веб-сервер продолжают работать в фоне.");
+        println!("   (Для выхода нажмите Ctrl+C в терминале или кнопку 'Закрыть всё' в меню)");
+        let _ = overlay_handle.join();
+        return;
     }
 
     // 2. Fallback для чистого X11 / XWayland
